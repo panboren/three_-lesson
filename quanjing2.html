@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>基于threejs的3D全景</title>
+    <style type="text/css">
+        *{
+            margin: 0;
+            padding: 0;
+        }
+        body{
+            cursor: move;
+            overflow: hidden;
+        }
+    </style>
+    <script src="../../three.js-master/build/three.js"></script>
+    <script src="../../three.js-master/examples/js/controls/OrbitControls.js"></script>
+    <script src="../../three.js-master/examples/js/renderers/CSS3DRenderer.js"></script>
+</head>
+<body>
+<script type="text/javascript">
+    var img_url = 'http://img.22family.com/threejs/demo/',
+        imgArr = [
+            { img: 'posx.jpg', position:[-512, 0, 0], rotation:[0, Math.PI / 2, 0] }, // 左边
+            { img: 'negx.jpg', position:[512, 0, 0], rotation:[0, -Math.PI / 2, 0] }, // 右边
+            { img: 'posy.jpg', position:[0, 512, 0], rotation:[Math.PI / 2, 0, Math.PI] },  // 上边
+            { img: 'negy.jpg', position:[0, -512, 0], rotation:[-Math.PI / 2, 0, Math.PI] },// 下边
+            { img: 'posz.jpg', position:[0, 0, 512], rotation:[0, Math.PI, 0] },      // 后面
+            { img: 'negz.jpg', position:[0, 0, -512], rotation:[0, 0, 0] }            // 前面
+        ],
+        timer,
+        userChange = false,
+        scene, camera, renderer;
+    var target = new THREE.Vector3();
+    var lon = 90, lat = 0;
+    var phi = 0, theta = 0;
+    var touchX, touchY;
+
+    function init(){
+        scene = new THREE.Scene()
+        camera = new THREE.PerspectiveCamera( 75, window.innerWidth / window.innerHeight, 1, 1000 );
+
+        imgArr.forEach(function (v, k){
+            var element = document.createElement( 'img' );
+            element.width = 1028;
+            element.height = 1028;
+            element.src = img_url + v.img;
+
+            var object = new THREE.CSS3DObject( element );
+            object.rotation.fromArray( v.rotation );
+            object.position.fromArray( v.position );
+            scene.add( object );
+        })
+
+        renderer = new THREE.CSS3DRenderer();
+        renderer.setSize( window.innerWidth, window.innerHeight );
+        document.body.appendChild( renderer.domElement );
+
+        document.addEventListener( 'mousedown', onDocumentMouseDown, false );
+        document.addEventListener( 'wheel', onDocumentMouseWheel, false );
+        document.addEventListener( 'touchstart', onDocumentTouchStart, false );
+        document.addEventListener( 'touchmove', onDocumentTouchMove, false );
+        window.addEventListener( 'resize', onWindowResize, false );
+
+        animate()
+    }
+    function onWindowResize() {
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize( window.innerWidth, window.innerHeight );
+    }
+
+    function onDocumentMouseDown( event ) {
+        event.preventDefault();
+        document.addEventListener( 'mousemove', onDocumentMouseMove, false );
+        document.addEventListener( 'mouseup', onDocumentMouseUp, false );
+    }
+
+    function onDocumentMouseMove( event ) {
+        var movementX = event.movementX || event.mozMovementX || event.webkitMovementX || 0;
+        var movementY = event.movementY || event.mozMovementY || event.webkitMovementY || 0;
+
+        // 经纬度变化
+        lon -= movementX * 0.1;
+        lat += movementY * 0.1;
+
+        // 拖动时暂停自动平移
+        userChange = true
+        clearTimeout(timer)
+        timer = setTimeout(function(){
+            userChange = false
+        }, 5000)
+    }
+
+    function onDocumentMouseUp() {
+        document.removeEventListener( 'mousemove', onDocumentMouseMove );
+        document.removeEventListener( 'mouseup', onDocumentMouseUp );
+    }
+
+    function onDocumentMouseWheel( event ) {
+        // 鼠标滚筒来控制相机的角度
+        var fov = camera.fov + event.deltaY * 0.05;
+        camera.fov = THREE.Math.clamp( fov, 10, 75 );
+        camera.updateProjectionMatrix();
+    }
+
+    function onDocumentTouchStart( event ) {
+        event.preventDefault();
+        var touch = event.touches[ 0 ];
+        touchX = touch.screenX;
+        touchY = touch.screenY;
+    }
+
+    function onDocumentTouchMove( event ) {
+        event.preventDefault();
+        var touch = event.touches[ 0 ];
+        lon -= ( touch.screenX - touchX ) * 0.1;
+        lat += ( touch.screenY - touchY ) * 0.1;
+        touchX = touch.screenX;
+        touchY = touch.screenY;
+
+        userChange = true
+        clearTimeout(timer)
+        timer = setTimeout(function(){
+            userChange = false
+        }, 5000)
+    }
+
+    function animate() {
+        requestAnimationFrame( animate );
+        if(!userChange){
+            // 自动平移视角，改变经度
+            lon += 0.1;
+        }
+        lat = Math.max( - 85, Math.min( 85, lat ) );
+        phi = THREE.Math.degToRad( 90 - lat );
+        theta = THREE.Math.degToRad( lon );
+        target.x = Math.sin( phi ) * Math.cos( theta );
+        target.y = Math.cos( phi );
+        target.z = Math.sin( phi ) * Math.sin( theta );
+
+        camera.lookAt( target );
+        renderer.render( scene, camera );
+    }
+
+    window.onload = init
+</script>
+</body>
+</html>
